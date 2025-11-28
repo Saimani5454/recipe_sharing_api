@@ -4,42 +4,111 @@ const auth = require("../middleware/auth");
 
 const router = express.Router();
 
-// Get all recipes
+/**
+ * GET /api/recipes
+ * Get all recipes
+ */
 router.get("/", (req, res) => {
-  res.json(Recipe.getAll());
+  const recipes = Recipe.getAll();
+  res.json({
+    count: recipes.length,
+    recipes
+  });
 });
 
-// Get recipe by ID
+/**
+ * GET /api/recipes/search
+ * Search recipes by title or ingredients
+ * Query: { q: search_term }
+ */
+router.get("/search", (req, res) => {
+  const query = req.query.q;
+  
+  if (!query) {
+    return res.status(400).json({ error: "Search query is required" });
+  }
+
+  const results = Recipe.search(query);
+  res.json({
+    count: results.length,
+    results
+  });
+});
+
+/**
+ * GET /api/recipes/:id
+ * Get single recipe by ID
+ */
 router.get("/:id", (req, res) => {
   const recipe = Recipe.getById(parseInt(req.params.id));
+  
   if (!recipe) {
-    return res.status(404).json({ message: "Recipe not found" });
+    return res.status(404).json({ error: "Recipe not found" });
   }
-  res.json(recipe);
+
+  res.json({ recipe });
 });
 
-// Create recipe
+/**
+ * GET /api/recipes/user/:userId
+ * Get all recipes created by a user
+ */
+router.get("/user/:userId", (req, res) => {
+  const recipes = Recipe.getByUserId(parseInt(req.params.userId));
+  res.json({
+    count: recipes.length,
+    recipes
+  });
+});
+
+/**
+ * POST /api/recipes
+ * Create a new recipe (requires authentication)
+ * Body: { title, description, ingredients, instructions }
+ */
 router.post("/", auth, (req, res) => {
-  const recipe = Recipe.create(req.body);
-  res.status(201).json({ message: "Recipe created", recipe });
+  const result = Recipe.create(req.body, req.userId);
+
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  res.status(201).json({
+    message: "Recipe created successfully",
+    recipe: result
+  });
 });
 
-// Update recipe
+/**
+ * PUT /api/recipes/:id
+ * Update a recipe (requires authentication)
+ * Body: { title, description, ingredients, instructions }
+ */
 router.put("/:id", auth, (req, res) => {
-  const recipe = Recipe.update(parseInt(req.params.id), req.body);
-  if (!recipe) {
-    return res.status(404).json({ message: "Recipe not found" });
+  const result = Recipe.update(parseInt(req.params.id), req.body, req.userId);
+
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
   }
-  res.json({ message: "Recipe updated", recipe });
+
+  res.json({
+    message: "Recipe updated successfully",
+    recipe: result
+  });
 });
 
-// Delete recipe
+/**
+ * DELETE /api/recipes/:id
+ * Delete a recipe (requires authentication)
+ */
 router.delete("/:id", auth, (req, res) => {
-  const deleted = Recipe.delete(parseInt(req.params.id));
-  if (!deleted) {
-    return res.status(404).json({ message: "Recipe not found" });
+  const result = Recipe.delete(parseInt(req.params.id), req.userId);
+
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
   }
-  res.json({ message: "Recipe deleted" });
+
+  res.json({ message: result.message });
 });
 
 module.exports = router;
